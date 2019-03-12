@@ -3031,7 +3031,6 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
    *
    * @param array $specs
    * @param string $tableName
-   * @param string $tableAlias
    * @param string $daoName
    * @param string $tableAlias
    * @param array $defaults
