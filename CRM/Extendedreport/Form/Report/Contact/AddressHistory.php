@@ -36,6 +36,12 @@ class CRM_Extendedreport_Form_Report_Contact_AddressHistory extends CRM_Extended
    * @throws \CiviCRM_API3_Exception
    */
   public function __construct() {
+    if (defined('CIVICRM_LOGGING_DSN')) {
+      $dsn = DB::parseDSN(CIVICRM_LOGGING_DSN);
+      // log table might be in a different database, prefix table name with db
+      $this->_baseTable = $dsn['database'] . '.' . $this->_baseTable;
+    }
+
     $addressColumns = $this->getColumns('Address', [
         'fields' => TRUE,
         'order_bys' => FALSE,
@@ -89,7 +95,7 @@ class CRM_Extendedreport_Form_Report_Contact_AddressHistory extends CRM_Extended
       ],
     ]);
 
-    $this->_columns = $this->buildColumns($logMetaData, 'log_civicrm_address', NULL, 'address',
+    $this->_columns = $this->buildColumns($logMetaData, $this->_baseTable, NULL, 'address',
       ['fields_defaults' => ['address_display', 'log_action', 'log_user_id', 'log_conn_id', 'log_date']],
       ['order_by' => FALSE, 'no_field_disambiguation' => TRUE]
     );
@@ -161,6 +167,69 @@ class CRM_Extendedreport_Form_Report_Contact_AddressHistory extends CRM_Extended
       }
     }
     return $this->mergedContacts;
+  }
+
+  /**
+   * Build columns while handling fully qualified table names
+   *
+   * @param array $specs
+   * @param string $tableName
+   * @param string $daoName
+   * @param string $tableAlias
+   * @param array $defaults
+   * @param array $options Options
+   *    - group_title
+   *
+   * @return array
+   */
+  protected function buildColumns($specs, $tableName, $daoName = NULL, $tableAlias = NULL, $defaults = [], $options = []) {
+    $columns = parent::buildColumns($specs, $tableName, $daoName, $tableAlias, $defaults, $options);
+    // cleanup aliases in $columns[$tableName]['alias'] and the "metadata",
+    // "fields" and "filters" data structure in $columns[$tableName]
+    $columns[$tableName]['alias'] = $this->cleanupAlias($columns[$tableName]['alias']);
+    foreach (['metadata', 'fields', 'filters'] as $keyToAdjust) {
+      foreach ($columns[$tableName][$keyToAdjust] as $filterName => $filterValue) {
+        $columns[$tableName][$keyToAdjust][$filterName]['alias'] = $this->cleanupAlias($filterValue['alias']);
+      }
+    }
+    return $columns;
+  }
+
+  /**
+   * Define select clause while handling fully qualified table names
+   *
+   * @param string $tableName
+   * @param string $tableKey
+   * @param string $fieldName
+   * @param array $field
+   *
+   * @return bool|string
+   */
+  public function selectClause(&$tableName, $tableKey, &$fieldName, &$field) {
+    $clause = parent::selectClause($tableName, $tableKey, $fieldName, $field);
+    $alias = "{$tableName}_{$fieldName}";
+    $cleanAlias = $this->cleanupAlias($alias);
+    if ($alias != $cleanAlias && array_key_exists($alias, $this->_columnHeaders)) {
+      $this->_columnHeaders[$cleanAlias] = $this->_columnHeaders[$alias];
+      unset($this->_columnHeaders[$alias]);
+      $clause = str_replace($alias, $cleanAlias, $clause);
+    }
+    return $clause;
+  }
+
+  /**
+   * Remove database part from fully qualified table alias
+   *
+   * @param $alias
+   *
+   * @return string
+   */
+  private function cleanupAlias($alias) {
+    $pos = strpos($alias, '.');
+    if (is_int($pos)) {
+      return substr($alias, $pos + 1);
+    }
+    return $alias;
   }
 
 }
