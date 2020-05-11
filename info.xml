@@ -13,8 +13,8 @@
     <author>Eileen McNaughton</author>
     <email>eileen@fuzion.co.nz</email>
   </maintainer>
-  <releaseDate>2020-02-12</releaseDate>
-  <version>5.1</version>
+  <releaseDate>2020-05-11</releaseDate>
+  <version>5.1-gp.1</version>
   <develStage>stable</develStage>
   <compatibility>
     <ver>5.22</ver>
